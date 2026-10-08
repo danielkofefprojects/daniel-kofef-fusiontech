@@ -1,0 +1,80 @@
+﻿AI-Assisted Engineering Challenge (3 Hours) 
+Goal 
+Build a small backend-driven application from scratch that accepts user feedback and reliably extracts structured insights using an LLM, while demonstrating engineering judgment and effective use of AI coding assistants. 
+This is not a UI or polish task. We care about correctness, structure, and tradeoffs. 
+Hard Rules 
+1. All code must be written using an AI coding assistant (Cursor, Copilot, ChatGPT, etc.). 
+- No manual typing beyond glue code or prompt adjustments. 
+2. You must submit: 
+- The code 
+- A short README 
+- A brief AI Collaboration Log 
+3. Timebox: 3 hours 
+- Do not overbuild. Make conscious tradeoffs and document them. 
+Functional Requirements 
+1. Feedback Submission 
+- Users can submit free-text feedback. 
+- Feedback must be persisted to a database (SQLite or Postgres is fine). Each feedback item must include: 
+- id 
+- content 
+- status (RECEIVED | ANALYZING | DONE | FAILED) 
+- created_at 
+- updated_at
+2. Asynchronous AI Analysis (Mandatory) 
+- Submitting feedback must not block on AI analysis. 
+- Analysis runs asynchronously (a simple in-process queue is acceptable). State flow: 
+RECEIVED → ANALYZING → DONE | FAILED 
+Failures must be explicitly represented and retriable. 
+3. Structured AI Output (Mandatory) 
+The AI must return strict JSON matching the following schema: { 
+"sentiment": "positive | neutral | negative", 
+"feature_requests": [ 
+{ "title": "string", "confidence": 0.0 } 
+], 
+"actionable_insight": "string" 
+} 
+Requirements: 
+- Validate the AI output against the schema. 
+- If the output is invalid, mark the analysis as FAILED. 
+- Persist: 
+- The raw AI response 
+- The validated structured result
+4. Guardrail (Pick ONE) 
+Implement one of the following and explain your choice: 
+- Deduplicate identical feedback (hash-based) - Rate-limit AI analysis 
+- Cache analysis results 
+- Token-length truncation strategy 
+5. Read API 
+Expose an endpoint to: 
+- List submitted feedback 
+- Include status and analysis result (if available) Pagination and filtering are optional. 
+AI Collaboration Log (Required) 
+Include this section in your README or as a separate file: 
+- Which AI tool(s) you used 
+- 2–3 example prompts you relied on 
+- One concrete example where: 
+- The AI output was wrong, unsafe, or low quality - You corrected or constrained it 
+- What you would improve with more time 
+This section is evaluated as seriously as the code. 
+What We Care About 
+- Engineering judgment and robustness 
+- Clear state management 
+- Defensive handling of AI output
+- Sensible structure and naming 
+- Evidence you can steer AI effectively 
+What We Do NOT Care About 
+- UI polish 
+- Authentication 
+- Deployment 
+- Perfect test coverage 
+Evaluation Criteria 
+- Engineering judgment & correctness 
+- Data and state consistency 
+- Quality of AI integration (validation, failures, retries) - Ability to deliver quickly using AI 
+- Clarity of explanations and tradeoffs 
+Submission 
+- Git repository or ZIP archive 
+- README including: 
+- Setup instructions 
+- Design decisions and tradeoffs 
+- AI Collaboration Log
