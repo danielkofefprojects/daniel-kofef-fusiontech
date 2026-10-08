@@ -68,6 +68,58 @@ curl localhost:3000/feedback
 
 The analysis above is real output from `openai/gpt-oss-120b` on Groq (the default model; change it with `GROQ_MODEL`).
 
+### Request examples
+
+Valid requests:
+
+```bash
+# Submit feedback -> 201, status RECEIVED, "duplicate": false
+curl -i -X POST localhost:3000/feedback -H 'content-type: application/json' \
+  -d '{"content":"The export button is too slow"}'
+
+# Same text again (case/whitespace differences are ignored) -> 200, "duplicate": true
+curl -i -X POST localhost:3000/feedback -H 'content-type: application/json' \
+  -d '{"content":"  the EXPORT button is too slow "}'
+
+# List with filters and paging -> 200 { items, total, limit, offset }
+curl 'localhost:3000/feedback?status=DONE&sentiment=negative&q=export&limit=10&offset=0'
+
+# One item with every analysis attempt -> 200 (404 if the id is unknown)
+curl localhost:3000/feedback/<id>
+
+# Re-queue a FAILED item -> 202 (409 if not FAILED, 404 if unknown)
+curl -X POST localhost:3000/feedback/<id>/retry
+```
+
+### Validation examples
+
+Every invalid request returns `400` with `{ "error": "Invalid request", "details": [...] }`; each detail is `<field>: <message>`.
+
+| Request | `details` |
+|---|---|
+| `POST /feedback` with `{}` | `content: Invalid input: expected string, received undefined` |
+| `{"content": "   "}` | `content: must not be empty` |
+| `{"content": 123}` (no coercion) | `content: Invalid input: expected string, received number` |
+| `{"content": "<5001 chars>"}` | `content: Too big: expected string to have <=5000 characters` |
+| `{"content": "hi", "extra": 1}` | `(root): Unrecognized key: "extra"` |
+| `GET /feedback?status=NOPE` | `status: Invalid option: expected one of "RECEIVED"\|"ANALYZING"\|"DONE"\|"FAILED"` |
+| `GET /feedback?sentiment=happy` | `sentiment: Invalid option: expected one of "positive"\|"neutral"\|"negative"` |
+| `GET /feedback?q=%20%20` (blank) | `q: Too small: expected string to have >=1 characters` |
+| `GET /feedback?limit=500` | `limit: Too big: expected number to be <=100` |
+| `GET /feedback?limit=abc&offset=-1` | `limit: Invalid input: expected number, received NaN`, `offset: Too small: expected number to be >=0` |
+
+```bash
+curl -i -X POST localhost:3000/feedback -H 'content-type: application/json' -d '{"content":"   "}'
+```
+
+```json
+HTTP/1.1 400 Bad Request
+
+{ "error": "Invalid request", "details": ["content: must not be empty"] }
+```
+
+Other errors: `404 {"error":"Feedback not found"}` and `409 {"error":"Only FAILED feedback can be retried; current status is DONE"}`.
+
 ## Design
 
 ```
@@ -79,6 +131,16 @@ src/
   analysis/            prompt, LLM client, output schema, analyzer, in-process queue
 ui/                    React + Vite front end (submit page, feedback list); see Web UI
 ```
+
+### Why Fastify
+
+Fastify is only the HTTP layer; the interesting logic lives in the repository, analyzer and queue.
+
+- **Right size.** Five endpoints do not need a large framework, and Fastify has first-class TypeScript types and native async handlers, so a rejected promise becomes an error response instead of an unhandled rejection.
+- **Built-in structured logging** (pino), used for requests, queue errors and startup recovery, with no extra package.
+- **Testable without a network.** `app.inject()` sends requests straight into the app, which is how the HTTP contract tests run with no port and no API key.
+- **Clean shutdown.** `app.close()` stops accepting requests and drains in-flight ones, which fits the shutdown order in `server.ts` (close the app, stop the queue, wait for in-flight LLM calls, close the database).
+- **Validation is not Fastify's.** Its default JSON-schema validator coerces types and strips unknown fields, which is wrong for a service that must reject bad input. Request bodies are validated with strict Zod schemas in the route handlers instead.
 
 ### State management
 
