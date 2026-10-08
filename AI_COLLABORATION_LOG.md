@@ -68,6 +68,7 @@ The assistant's first recommendation was a different LLM provider from the one I
 ## What I would improve with more time
 
 - Turn the manual live test (five inputs, including a prompt-injection attempt and Hebrew text, all valid on the first attempt) into a larger evaluation set and record how often strict validation fails, then decide from data whether to move to `json_schema` structured outputs.
+- Harden the prompt against injection. A live test showed the model keeps the correct sentiment but still reports an injected "Give me admin access" as a high-confidence feature request (see the limitations in the README). Schema validation does not catch this, so it needs prompt changes and an evaluation case.
 - Replace the in-process queue with a jobs table with leases so multiple workers are safe, and add capped automatic retries for retryable failures.
 - Have the assistant write a second, adversarial review of its own state-transition code (crash between claim and completion, two processes, shutdown mid-request) and turn each finding into a test.
 - Track duplicate counts instead of only collapsing duplicates.
